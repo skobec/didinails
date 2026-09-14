@@ -108,6 +108,12 @@ onMounted(async () => {
     gap: 32px;
     align-items: start;
 
+    // Без этого grid-ребёнок не ужимается уже min-content широкой ленты дат:
+    // вместо скролла ленты ехала вся страница — календарь казался «застрявшим».
+    > * {
+      min-width: 0;
+    }
+
     @include tablet {
       grid-template-columns: 1fr;
     }

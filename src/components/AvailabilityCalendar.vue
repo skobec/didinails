@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { getDayName, getMonthDay } from '@/utils/helpers'
 import { statusLabel, type DayAvailability, type DayStatus } from '@/composables/useAvailability'
+
+const stripRef = ref<HTMLElement | null>(null)
+
+function scrollStrip(dir: 1 | -1) {
+  stripRef.value?.scrollBy({ left: dir * 240, behavior: 'smooth' })
+}
 
 defineProps<{
   days: DayAvailability[]
@@ -24,20 +31,24 @@ function dotClass(status: DayStatus): string {
 
 <template>
   <div class="avail-cal">
-    <div class="avail-cal__dates">
-      <button
-        v-for="day in days"
-        :key="day.date"
-        :class="['avail-cal__date-btn', { 'avail-cal__date-btn--active': selectedDate === day.date }]"
-        :disabled="day.status === 'off' || day.status === 'full'"
-        :title="statusLabel(day.status)"
-        @click="emit('select', day.date)"
-      >
-        <span class="avail-cal__date-day">{{ getDayName(day.date) }}</span>
-        <span class="avail-cal__date-num">{{ getMonthDay(day.date) }}</span>
-        <span :class="['avail-cal__dot', dotClass(day.status)]" />
-        <span class="avail-cal__free">{{ day.status === 'off' ? '—' : day.free }}</span>
-      </button>
+    <div class="avail-cal__scroller">
+      <button class="avail-cal__arrow avail-cal__arrow--left" aria-label="Даты назад" @click="scrollStrip(-1)">‹</button>
+      <div ref="stripRef" class="avail-cal__dates">
+        <button
+          v-for="day in days"
+          :key="day.date"
+          :class="['avail-cal__date-btn', { 'avail-cal__date-btn--active': selectedDate === day.date }]"
+          :disabled="day.status === 'off' || day.status === 'full'"
+          :title="statusLabel(day.status)"
+          @click="emit('select', day.date)"
+        >
+          <span class="avail-cal__date-day">{{ getDayName(day.date) }}</span>
+          <span class="avail-cal__date-num">{{ getMonthDay(day.date) }}</span>
+          <span :class="['avail-cal__dot', dotClass(day.status)]" />
+          <span class="avail-cal__free">{{ day.status === 'off' ? '—' : day.free }}</span>
+        </button>
+      </div>
+      <button class="avail-cal__arrow avail-cal__arrow--right" aria-label="Даты вперёд" @click="scrollStrip(1)">›</button>
     </div>
     <div class="avail-cal__legend">
       <span class="avail-cal__legend-item"><span class="avail-cal__dot avail-cal__dot--free" /> свободно</span>
@@ -53,12 +64,53 @@ function dotClass(status: DayStatus): string {
 @use '@/assets/styles/mixins' as *;
 
 .avail-cal {
+  &__scroller {
+    position: relative;
+  }
+
+  &__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: $color-surface;
+    border: 1px solid $color-border;
+    box-shadow: $shadow-md;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    line-height: 1;
+    color: $color-text;
+    transition: all $transition-fast;
+
+    &:hover {
+      border-color: $color-text;
+    }
+
+    // Стрелки — только там, где нет тачскрина (на мобиле работает свайп).
+    @media (hover: hover) {
+      display: flex;
+    }
+
+    &--left { left: -14px; }
+    &--right { right: -14px; }
+  }
+
   &__dates {
     display: flex;
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 8px;
     scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
     &::-webkit-scrollbar { display: none; }
   }
 
@@ -74,6 +126,8 @@ function dotClass(status: DayStatus): string {
     cursor: pointer;
     transition: all $transition-fast;
     min-width: 68px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
 
     &:hover:not(:disabled) {
       border-color: $color-text;
