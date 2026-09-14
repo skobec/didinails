@@ -3,6 +3,7 @@ import { defaultTimeSlots } from '@/data/timeSlots'
 import type { TimeSlot } from '@/types'
 
 export interface WorkingHoursRow {
+  id?: string
   business_id: string
   weekday: number // 0 = воскресенье … 6 = суббота
   open_time: string | null // 'HH:MM:SS'
@@ -11,6 +12,7 @@ export interface WorkingHoursRow {
 }
 
 export interface BlockedPeriodRow {
+  id: string
   business_id: string
   start_at: string
   end_at: string
@@ -128,7 +130,7 @@ export async function unblockHour(businessId: string, dateISO: string, time: str
   const slotEnd = slotStart + 3600000
   const client = requireClient()
   const ids: string[] = []
-  for (const p of periods as (BlockedPeriodRow & { id: string })[]) {
+  for (const p of periods) {
     const s = new Date(p.start_at).getTime()
     const e = new Date(p.end_at).getTime()
     if (s < slotEnd && e > slotStart) ids.push(p.id)
@@ -136,4 +138,97 @@ export async function unblockHour(businessId: string, dateISO: string, time: str
   if (ids.length === 0) return
   const { error } = await client.from('blocked_periods').delete().in('id', ids)
   if (error) throw new Error(error.message)
+}
+
+function dayBounds(dateISO: string): { start: number; end: number } {
+  const start = new Date(dateISO + 'T00:00:00').getTime()
+  return { start, end: start + 86400000 }
+}
+
+// Заблокировать весь день (почасовыми отрезками — чтобы потом можно было
+// точечно открывать отдельные часы). Уже заблокированные часы пропускаем.
+export async function blockDay(businessId: string, dateISO: string): Promise<number> {
+  const periods = await getBlockedPeriods(businessId)
+  const already = new Set(blockedTimesForDate(periods, dateISO))
+  const rows = []
+  for (let h = 0; h < 24; h++) {
+    const time = `${String(h).padStart(2, '0')}:00`
+    if (already.has(time)) continue
+    const start = new Date(dateISO + 'T00:00:00')
+    start.setHours(h, 0, 0, 0)
+    rows.push({
+      business_id: businessId,
+      start_at: start.toISOString(),
+      end_at: new Date(start.getTime() + 3600000).toISOString(),
+      reason: 'Выходной (день целиком)',
+    })
+  }
+  if (rows.length === 0) return 0
+  const { error } = await requireClient().from('blocked_periods').insert(rows)
+  if (error) throw new Error(error.message)
+  return rows.length
+}
+
+// Разблокировать весь день.
+export async function unblockDay(businessId: string, dateISO: string): Promise<number> {
+  const periods = await getBlockedPeriods(businessId)
+  const { start, end } = dayBounds(dateISO)
+  const ids = periods
+    .filter((p) => {
+      const s = new Date(p.start_at).getTime()
+      const e = new Date(p.end_at).getTime()
+      return s < end && e > start
+    })
+    .map((p) => p.id)
+  if (ids.length === 0) return 0
+  const { error } = await requireClient().from('blocked_periods').delete().in('id', ids)
+  if (error) throw new Error(error.message)
+  return ids.length
+}
+
+function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && aEnd > bStart
+}
+
+// Скопировать блокировки недели (7 дней от weekStartISO) вперёд на N недель.
+// Так составляется график на месяцы: настроил одну неделю — размножил.
+// Уже занятые часы в целевых неделях не дублируем. Возвращает число созданных.
+export async function copyWeekBlocks(
+  businessId: string,
+  weekStartISO: string,
+  weeksAhead: number,
+): Promise<number> {
+  const weekStart = new Date(weekStartISO + 'T00:00:00').getTime()
+  const weekEnd = weekStart + 7 * 86400000
+  const periods = await getBlockedPeriods(businessId)
+  const source = periods.filter((p) => {
+    const s = new Date(p.start_at).getTime()
+    return s >= weekStart && s < weekEnd
+  })
+  if (source.length === 0 || weeksAhead < 1) return 0
+
+  const known: Array<{ s: number; e: number }> = periods.map((p) => ({
+    s: new Date(p.start_at).getTime(),
+    e: new Date(p.end_at).getTime(),
+  }))
+  const rows = []
+  for (let n = 1; n <= weeksAhead; n++) {
+    const off = n * 7 * 86400000
+    for (const p of source) {
+      const s = new Date(p.start_at).getTime() + off
+      const e = new Date(p.end_at).getTime() + off
+      if (known.some((k) => rangesOverlap(s, e, k.s, k.e))) continue
+      known.push({ s, e })
+      rows.push({
+        business_id: businessId,
+        start_at: new Date(s).toISOString(),
+        end_at: new Date(e).toISOString(),
+        reason: p.reason || 'Копия недели',
+      })
+    }
+  }
+  if (rows.length === 0) return 0
+  const { error } = await requireClient().from('blocked_periods').insert(rows)
+  if (error) throw new Error(error.message)
+  return rows.length
 }

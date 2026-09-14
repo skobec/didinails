@@ -28,7 +28,6 @@ const year = new Date().getFullYear()
         <div class="footer__col">
           <h4 class="footer__title">Контакты</h4>
           <a href="tel:+79372162460" class="footer__link">+7 937 216 2460</a>
-          <a href="mailto:hello@didinails.ru" class="footer__link">hello@didinails.ru</a>
           <a href="https://www.instagram.com/di.dii.nails_" target="_blank" rel="noopener" class="footer__link">Instagram</a>
           <a href="https://t.me/nailwinx" target="_blank" rel="noopener" class="footer__link">Telegram</a>
         </div>

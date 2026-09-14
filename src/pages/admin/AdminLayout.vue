@@ -2,8 +2,12 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useBookingWatcher } from '@/composables/useBookingWatcher'
 import { business } from '@/config/business'
 import logoUrl from '@/assets/logo.svg'
+
+// Живой вотчер: пока открыта админка — тост и бейдж вкладки о новых записях.
+useBookingWatcher()
 
 const route = useRoute()
 const router = useRouter()

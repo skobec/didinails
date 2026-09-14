@@ -99,7 +99,7 @@ function shortHandle(url: string): string {
               <a :href="telegram" target="_blank" rel="noopener" class="contacts-page__value contacts-page__value--link">{{ shortHandle(telegram) }}</a>
             </div>
           </div>
-          <div v-if="email" class="contacts-page__item">
+          <div v-if="email.length < 0" class="contacts-page__item">
             <div class="contacts-page__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>

@@ -1,20 +1,64 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useTimeSlots } from '@/composables/useTimeSlots'
 import { useBookings } from '@/composables/useBookings'
 import { useAdminScope } from '@/composables/useAdminScope'
-import { getDaysAround, getDayName, getMonthDay } from '@/utils/helpers'
+import { useAuthStore } from '@/stores/authStore'
+import { isSupabaseEnabled } from '@/services/supabase'
+import {
+  blockDay,
+  unblockDay,
+  copyWeekBlocks,
+} from '@/services/repositories/schedule'
+import { defaultTimeSlots } from '@/data/timeSlots'
+import { getDayName, getMonthDay } from '@/utils/helpers'
 import { useToast } from '@/composables/useToast'
+import { ruError } from '@/utils/errors'
 
-const { cloudError, getSlotsForDate, toggleBlocked, useCloudScope: slotsScope } = useTimeSlots()
+const { cloudError, blockedTimes, persistBlocked, getSlotsForDate, toggleBlocked, reload: reloadSlots, useCloudScope: slotsScope } = useTimeSlots()
 const { bookings: allBookings, useCloudScope: bookingsScope } = useBookings()
+const auth = useAuthStore()
 const { show } = useToast()
 
 useAdminScope([bookingsScope, slotsScope])
 
-const selectedDate = ref(getDaysAround(1)[0])
+const businessId = computed(() => auth.business?.id ?? null)
+const cloudActive = computed(() => isSupabaseEnabled() && !!businessId.value)
 
-const days = computed(() => getDaysAround(14))
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function addDaysISO(dateISO: string, n: number): string {
+  const d = new Date(dateISO + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return fmtDate(d)
+}
+
+// Лента на 14 дней со сдвигом по неделям — так удобно уходить на месяцы вперёд.
+const weekOffset = ref(0)
+
+const days = computed(() => {
+  const out: string[] = []
+  const base = new Date()
+  base.setDate(base.getDate() + weekOffset.value * 7)
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(base)
+    d.setDate(d.getDate() + i)
+    out.push(fmtDate(d))
+  }
+  return out
+})
+
+const selectedDate = ref(fmtDate(new Date()))
+
+watch(weekOffset, () => {
+  selectedDate.value = days.value[0]
+})
 
 const dayBookings = computed(() =>
   allBookings.value.filter((b) => b.date === selectedDate.value && b.status !== 'cancelled')
@@ -33,6 +77,76 @@ async function toggle(time: string) {
   }
 }
 
+async function blockWholeDay() {
+  try {
+    if (cloudActive.value && businessId.value) {
+      const n = await blockDay(businessId.value, selectedDate.value)
+      await reloadSlots()
+      show(n > 0 ? `День заблокирован (${n} ч)` : 'День уже был заблокирован', 'success')
+    } else {
+      const cur = new Set(blockedTimes.value[selectedDate.value] || [])
+      for (const s of defaultTimeSlots) {
+        if (!cur.has(s.time)) await toggleBlocked(selectedDate.value, s.time)
+      }
+      show('День заблокирован', 'success')
+    }
+  } catch (e) {
+    show(cloudError.value || ruError(e instanceof Error ? e.message : ''), 'error')
+  }
+}
+
+async function unblockWholeDay() {
+  try {
+    if (cloudActive.value && businessId.value) {
+      const n = await unblockDay(businessId.value, selectedDate.value)
+      await reloadSlots()
+      show(n > 0 ? `День открыт (${n} ч)` : 'День и так открыт', 'success')
+    } else {
+      for (const t of [...(blockedTimes.value[selectedDate.value] || [])]) {
+        await toggleBlocked(selectedDate.value, t)
+      }
+      show('День открыт', 'success')
+    }
+  } catch (e) {
+    show(cloudError.value || ruError(e instanceof Error ? e.message : ''), 'error')
+  }
+}
+
+// Размножить блокировки видимой недели вперёд — так график составляется
+// на месяцы: настроил одну неделю, скопировал на N следующих.
+async function copyWeek(weeks: number) {
+  try {
+    const weekStart = days.value[0]
+    if (cloudActive.value && businessId.value) {
+      const n = await copyWeekBlocks(businessId.value, weekStart, weeks)
+      await reloadSlots()
+      show(n > 0 ? `Скопировано блокировок: ${n}` : 'В этой неделе нет блокировок для копирования', n > 0 ? 'success' : 'info')
+    } else {
+      let n = 0
+      for (let k = 1; k <= weeks; k++) {
+        for (let i = 0; i < 7; i++) {
+          const src = addDaysISO(weekStart, i)
+          const dst = addDaysISO(weekStart, i + k * 7)
+          const srcBlocked = blockedTimes.value[src] || []
+          if (srcBlocked.length === 0) continue
+          const dstSet = new Set(blockedTimes.value[dst] || [])
+          for (const t of srcBlocked) {
+            if (!dstSet.has(t)) {
+              dstSet.add(t)
+              n++
+            }
+          }
+          blockedTimes.value[dst] = [...dstSet]
+        }
+      }
+      persistBlocked()
+      show(n > 0 ? `Скопировано блокировок: ${n}` : 'В этой неделе нет блокировок для копирования', n > 0 ? 'success' : 'info')
+    }
+  } catch (e) {
+    show(cloudError.value || ruError(e instanceof Error ? e.message : ''), 'error')
+  }
+}
+
 function statusClass(status: string) {
   switch (status) {
     case 'pending': return 'admin-calendar__booking--pending'
@@ -47,6 +161,11 @@ function statusClass(status: string) {
   <div class="admin-calendar">
     <div class="admin-calendar__top">
       <h3>Управление временными слотами</h3>
+      <div class="admin-calendar__weeknav">
+        <button class="admin-calendar__weekbtn" :disabled="weekOffset <= 0" @click="weekOffset--">‹</button>
+        <span class="admin-calendar__weeklabel">{{ getMonthDay(days[0]) }} — {{ getMonthDay(days[13]) }}</span>
+        <button class="admin-calendar__weekbtn" @click="weekOffset++">›</button>
+      </div>
     </div>
 
     <div class="admin-calendar__dates">
@@ -59,6 +178,19 @@ function statusClass(status: string) {
         <span class="admin-calendar__date-day">{{ getDayName(day) }}</span>
         <span class="admin-calendar__date-num">{{ getMonthDay(day) }}</span>
       </button>
+    </div>
+
+    <div class="admin-calendar__bulkactions">
+      <div class="admin-calendar__bulkgroup">
+        <span class="admin-calendar__bulklabel">{{ getMonthDay(selectedDate) }}:</span>
+        <button class="admin-calendar__bulkbtn" @click="blockWholeDay">Заблокировать день</button>
+        <button class="admin-calendar__bulkbtn" @click="unblockWholeDay">Открыть день</button>
+      </div>
+      <div class="admin-calendar__bulkgroup">
+        <span class="admin-calendar__bulklabel">Неделю {{ getMonthDay(days[0]) }}–{{ getMonthDay(days[6]) }} →</span>
+        <button class="admin-calendar__bulkbtn" @click="copyWeek(1)">+1 неделя</button>
+        <button class="admin-calendar__bulkbtn" @click="copyWeek(4)">+4 недели</button>
+      </div>
     </div>
 
     <div class="admin-calendar__layout">
@@ -112,8 +244,76 @@ function statusClass(status: string) {
 
 .admin-calendar {
   &__top {
-    margin-bottom: 24px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     h3 { font-size: 16px; }
+  }
+
+  &__weeknav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__weekbtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid $color-border;
+    background: $color-surface;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled) { border-color: $color-text; }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+  }
+
+  &__weeklabel {
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 110px;
+    text-align: center;
+  }
+
+  &__bulkactions {
+    display: flex;
+    gap: 16px 32px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    background: $color-surface;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+  }
+
+  &__bulkgroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__bulklabel {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__bulkbtn {
+    padding: 7px 14px;
+    border: 1px solid $color-border;
+    border-radius: 100px;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover { border-color: $color-text; }
   }
 
   &__dates {

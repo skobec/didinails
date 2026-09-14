@@ -132,9 +132,15 @@ export function useTimeSlots() {
     return slots.value.filter((s) => s.available)
   }
 
+  // Сохранить ручные правки blockedTimes (массовые операции админки).
+  function persistBlocked() {
+    storage.set('blockedTimes', blockedTimes.value)
+  }
+
   return {
     slots,
     blockedTimes,
+    persistBlocked,
     loading,
     cloudError,
     getSlotsForDate,
