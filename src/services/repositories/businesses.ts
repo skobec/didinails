@@ -45,16 +45,43 @@ export interface BusinessPatch {
   city?: string
   address?: string
   timezone?: string
+  instagram?: string
+  telegram?: string
+  phone_note?: string
   avatar_url?: string
 }
 
 export async function updateBusiness(id: string, patch: BusinessPatch): Promise<Business> {
-  const { data, error } = await requireClient()
+  const payload: Record<string, unknown> = { ...patch }
+  let { data, error } = await requireClient()
     .from('businesses')
-    .update(patch)
+    .update(payload)
     .eq('id', id)
     .select()
     .single()
+  if (error && isUnknownColumn(error)) {
+    // Миграция 0006 ещё не применена — сохраняем без новых полей.
+    delete payload.instagram
+    delete payload.telegram
+    delete payload.phone_note
+    ;({ data, error } = await requireClient()
+      .from('businesses')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single())
+  }
   if (error) throw new Error(error.message)
   return data as Business
+}
+
+function isUnknownColumn(err: { code?: string; message?: string }): boolean {
+  const code = err.code ?? ''
+  const msg = (err.message ?? '').toLowerCase()
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (msg.includes('column') &&
+      (msg.includes('instagram') || msg.includes('telegram') || msg.includes('phone_note')))
+  )
 }

@@ -8,8 +8,17 @@ import { useFeatured } from '@/composables/useFeatured'
 const router = useRouter()
 const { cloud, loading, biz, ensureLoaded } = useFeatured()
 
-const phone = computed(() => biz.value?.phone || '+7 (999) 123-45-67')
+const phone = computed(() => biz.value?.phone || '+7 937 216 2460')
 const email = computed(() => biz.value?.email || 'hello@didinails.ru')
+const instagram = computed(
+  () => biz.value?.instagram || 'https://www.instagram.com/di.dii.nails_',
+)
+const telegram = computed(() => biz.value?.telegram || 'https://t.me/nailwinx')
+const phoneNote = computed(
+  () =>
+    biz.value?.phone_note ||
+    'Пожалуйста, пишите СМС либо в мессенджеры — на звонки могу не ответить. Или запишитесь через электронную запись.',
+)
 const address = computed(() => {
   const parts = [biz.value?.city, biz.value?.address].filter(Boolean)
   return parts.join(', ') || 'г. Москва, ул. Тверская, д. 15'
@@ -19,6 +28,10 @@ onMounted(ensureLoaded)
 
 function telHref(value: string): string {
   return `tel:${value.replace(/[^+\d]/g, '')}`
+}
+
+function shortHandle(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/').slice(-1)[0] || url
 }
 </script>
 
@@ -58,6 +71,32 @@ function telHref(value: string): string {
             <div>
               <p class="contacts-page__label">Телефон</p>
               <a :href="telHref(phone)" class="contacts-page__value contacts-page__value--link">{{ phone }}</a>
+              <p v-if="phoneNote" class="contacts-page__note">{{ phoneNote }}</p>
+            </div>
+          </div>
+          <div v-if="instagram" class="contacts-page__item">
+            <div class="contacts-page__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </div>
+            <div>
+              <p class="contacts-page__label">Instagram</p>
+              <a :href="instagram" target="_blank" rel="noopener" class="contacts-page__value contacts-page__value--link">{{ shortHandle(instagram) }}</a>
+            </div>
+          </div>
+          <div v-if="telegram" class="contacts-page__item">
+            <div class="contacts-page__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </div>
+            <div>
+              <p class="contacts-page__label">Telegram</p>
+              <a :href="telegram" target="_blank" rel="noopener" class="contacts-page__value contacts-page__value--link">{{ shortHandle(telegram) }}</a>
             </div>
           </div>
           <div v-if="email" class="contacts-page__item">
@@ -162,6 +201,13 @@ function telHref(value: string): string {
     font-size: 13px;
     color: $color-text-tertiary;
     margin-bottom: 2px;
+  }
+
+  &__note {
+    font-size: 13px;
+    color: $color-text-secondary;
+    margin-top: 4px;
+    max-width: 380px;
   }
 
   &__value {

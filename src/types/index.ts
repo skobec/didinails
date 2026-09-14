@@ -55,6 +55,9 @@ export interface Business {
   city: string
   address: string
   timezone: string
+  instagram: string
+  telegram: string
+  phone_note: string
   avatar_url: string
   is_active: boolean
   created_at: string

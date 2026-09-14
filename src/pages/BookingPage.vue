@@ -37,12 +37,21 @@ const initial = computed(() => {
   }
 })
 
-const phone = computed(() => (cloud ? (biz.value?.phone ?? '') : '+7 (999) 123-45-67'))
+const phone = computed(() => (cloud ? (biz.value?.phone ?? '') : '+7 937 216 2460'))
 const address = computed(() => {
   if (!cloud) return 'г. Москва, ул. Тверская, д. 15'
   const parts = [biz.value?.city, biz.value?.address].filter(Boolean)
   return parts.join(', ')
 })
+const instagram = computed(() =>
+  cloud ? (biz.value?.instagram ?? '') : 'https://www.instagram.com/di.dii.nails_',
+)
+const telegram = computed(() => (cloud ? (biz.value?.telegram ?? '') : 'https://t.me/nailwinx'))
+const phoneNote = computed(() =>
+  cloud
+    ? (biz.value?.phone_note ?? '')
+    : 'Пожалуйста, пишите СМС либо в мессенджеры — на звонки могу не ответить. Или запишитесь через электронную запись.',
+)
 
 function telHref(value: string): string {
   return `tel:${value.replace(/[^+\d]/g, '')}`
@@ -78,6 +87,11 @@ onMounted(async () => {
             <span class="booking-page__label">Телефон</span>
             <a :href="telHref(phone)">{{ phone }}</a>
           </p>
+          <p v-if="phoneNote" class="booking-page__note">{{ phoneNote }}</p>
+          <div v-if="instagram || telegram" class="booking-page__socials">
+            <a v-if="instagram" :href="instagram" target="_blank" rel="noopener" class="booking-page__social">Instagram</a>
+            <a v-if="telegram" :href="telegram" target="_blank" rel="noopener" class="booking-page__social">Telegram</a>
+          </div>
           <p v-if="address" class="booking-page__contact">
             <span class="booking-page__label">Адрес</span>
             {{ address }}
@@ -158,6 +172,27 @@ onMounted(async () => {
 
   &__note {
     font-size: 13px;
+  }
+
+  &__socials {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__social {
+    padding: 8px 16px;
+    border: 1px solid $color-border;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $color-text;
+    text-decoration: none;
+    transition: all $transition-fast;
+
+    &:hover {
+      border-color: $color-text;
+    }
   }
 
   &__schedule-link {

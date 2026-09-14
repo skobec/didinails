@@ -25,6 +25,9 @@ const form = ref({
   city: '',
   address: '',
   timezone: 'Europe/Moscow',
+  instagram: '',
+  telegram: '',
+  phone_note: '',
 })
 
 const timezoneOptions = [
@@ -51,13 +54,16 @@ onMounted(async () => {
     if (b) {
       businessId.value = b.id
       form.value = {
-        name: b.name,
-        description: b.description,
-        phone: b.phone,
-        email: b.email,
-        city: b.city,
-        address: b.address,
+        name: b.name ?? '',
+        description: b.description ?? '',
+        phone: b.phone ?? '',
+        email: b.email ?? '',
+        city: b.city ?? '',
+        address: b.address ?? '',
         timezone: b.timezone || 'Europe/Moscow',
+        instagram: b.instagram ?? '',
+        telegram: b.telegram ?? '',
+        phone_note: b.phone_note ?? '',
       }
     }
   } catch (e) {
@@ -86,6 +92,9 @@ async function save() {
       city: form.value.city.trim(),
       address: form.value.address.trim(),
       timezone: form.value.timezone,
+      instagram: form.value.instagram.trim(),
+      telegram: form.value.telegram.trim(),
+      phone_note: form.value.phone_note.trim(),
     })
     show('Профиль сохранён — сайт обновится сразу', 'success')
   } catch (e) {
@@ -114,6 +123,11 @@ async function save() {
         <div class="admin-profile__row">
           <AppInput v-model="form.phone" label="Телефон" placeholder="+7 (___) ___-__-__" />
           <AppInput v-model="form.email" label="Email" placeholder="hello@example.com" />
+        </div>
+        <AppInput v-model="form.phone_note" label="Пометка про телефон" placeholder="Например: пишите в мессенджеры, на звонки могу не ответить" multiline />
+        <div class="admin-profile__row">
+          <AppInput v-model="form.instagram" label="Instagram (ссылка)" placeholder="https://www.instagram.com/..." />
+          <AppInput v-model="form.telegram" label="Telegram (ссылка)" placeholder="https://t.me/..." />
         </div>
         <div class="admin-profile__row">
           <AppInput v-model="form.city" label="Город" placeholder="Москва" />
