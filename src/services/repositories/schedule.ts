@@ -74,6 +74,36 @@ export function blockedTimesForDate(periods: BlockedPeriodRow[], dateISO: string
   return result
 }
 
+export interface WorkingHoursInput {
+  weekday: number
+  open_time: string | null
+  close_time: string | null
+  is_day_off: boolean
+}
+
+// Полная перезапись недельного графика (7 строк). Опирается на
+// unique(business_id, weekday) из миграции 0001.
+export async function saveWorkingHours(
+  businessId: string,
+  rows: WorkingHoursInput[],
+): Promise<void> {
+  const payload = rows.map((r) => ({ business_id: businessId, ...r }))
+  const { error } = await requireClient()
+    .from('working_hours')
+    .upsert(payload, { onConflict: 'business_id,weekday' })
+  if (error) throw new Error(error.message)
+}
+
+export const STANDARD_SCHEDULE: WorkingHoursInput[] = [
+  { weekday: 1, open_time: '10:00', close_time: '19:00', is_day_off: false },
+  { weekday: 2, open_time: '10:00', close_time: '19:00', is_day_off: false },
+  { weekday: 3, open_time: '10:00', close_time: '19:00', is_day_off: false },
+  { weekday: 4, open_time: '10:00', close_time: '19:00', is_day_off: false },
+  { weekday: 5, open_time: '10:00', close_time: '19:00', is_day_off: false },
+  { weekday: 6, open_time: '10:00', close_time: '16:00', is_day_off: false },
+  { weekday: 0, open_time: null, close_time: null, is_day_off: true },
+]
+
 export async function blockHour(businessId: string, dateISO: string, time: string): Promise<void> {
   const [h, m] = time.split(':').map(Number)
   const start = new Date(dateISO + 'T00:00:00')

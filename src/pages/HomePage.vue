@@ -105,7 +105,10 @@ function goReviews() {
         <div class="home__cta">
           <h2>Запишитесь прямо сейчас</h2>
           <p>Оставьте заявку и мы подберём удобное время</p>
-          <AppButton size="lg" @click="goBooking">Записаться онлайн</AppButton>
+          <div class="home__cta-actions">
+            <AppButton size="lg" @click="goBooking">Записаться онлайн</AppButton>
+            <AppButton size="lg" variant="secondary" @click="router.push('/schedule')">Смотреть расписание</AppButton>
+          </div>
         </div>
       </div>
     </section>
@@ -211,6 +214,13 @@ function goReviews() {
     p {
       max-width: 400px;
     }
+  }
+
+  &__cta-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 </style>

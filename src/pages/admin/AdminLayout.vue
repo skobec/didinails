@@ -33,6 +33,7 @@ const links = [
   { to: '/admin/gallery', label: 'Галерея', icon: 'gallery' },
   { to: '/admin/reviews', label: 'Отзывы', icon: 'reviews' },
   { to: '/admin/calendar', label: 'Календарь', icon: 'calendar' },
+  { to: '/admin/schedule', label: 'График работы', icon: 'clock' },
   { to: '/admin/notifications', label: 'Уведомления', icon: 'bell' },
   { to: '/admin/profile', label: 'Профиль', icon: 'user' },
 ]
@@ -55,6 +56,8 @@ function icon(name: string) {
       return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
     case 'user':
       return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    case 'clock':
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
   }
 }
 </script>
@@ -101,6 +104,7 @@ function icon(name: string) {
           <template v-else-if="route.path === '/admin/gallery'">Галерея</template>
           <template v-else-if="route.path === '/admin/reviews'">Отзывы</template>
           <template v-else-if="route.path === '/admin/calendar'">Календарь</template>
+          <template v-else-if="route.path === '/admin/schedule'">График работы</template>
           <template v-else-if="route.path === '/admin/notifications'">Уведомления</template>
           <template v-else-if="route.path === '/admin/profile'">Профиль</template>
         </h2>

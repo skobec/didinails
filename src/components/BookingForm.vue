@@ -4,18 +4,19 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import AppPhoneInput from '@/components/ui/AppPhoneInput.vue'
 import AppSkeleton from '@/components/ui/AppSkeleton.vue'
+import AvailabilityCalendar from '@/components/AvailabilityCalendar.vue'
 import { isValidRuPhone, checkBookingRateLimit, recordBookingAttempt } from '@/utils/phone'
 import ServiceCard from '@/components/ServiceCard.vue'
 import { useServices } from '@/composables/useServices'
 import { useBookings } from '@/composables/useBookings'
 import { useTimeSlots } from '@/composables/useTimeSlots'
+import { useAvailability } from '@/composables/useAvailability'
 import { useToast } from '@/composables/useToast'
 import { isSupabaseEnabled } from '@/services/supabase'
 import { listServices } from '@/services/repositories/services'
 import { getDayTimes, createBookingGuest, type DayTimes } from '@/services/repositories/bookings'
 import { getWorkingHours, buildTemplate, type WorkingHoursRow } from '@/services/repositories/schedule'
 import { ruError } from '@/utils/errors'
-import { getDaysAround, getDayName, getMonthDay } from '@/utils/helpers'
 import type { Service } from '@/types'
 import type { TimeSlot } from '@/types'
 
@@ -25,13 +26,17 @@ export interface BookingContext {
   timezone: string
 }
 
-const props = defineProps<{ context?: BookingContext | null }>()
+const props = defineProps<{
+  context?: BookingContext | null
+  initial?: { serviceId?: string; date?: string; time?: string } | null
+}>()
 
 const cloud = computed(() => !!props.context && isSupabaseEnabled())
 
 const { activeServices, categories } = useServices()
 const { create, getByDate } = useBookings()
 const timeSlots = useTimeSlots()
+const avail = useAvailability()
 const { show } = useToast()
 
 const step = ref<'service' | 'datetime' | 'info' | 'done'>('service')
@@ -91,7 +96,10 @@ async function loadDayTimes(date: string) {
   }
 }
 
-onMounted(loadCloud)
+onMounted(() => {
+  loadCloud()
+  applyInitial()
+})
 watch(
   () => props.context?.businessId,
   () => {
@@ -116,8 +124,6 @@ const allCategories = computed(() => {
 
 const selectedService = computed(() => serviceList.value.find((s) => s.id === selectedServiceId.value))
 
-const days = computed(() => getDaysAround(14))
-
 const availableSlots = computed<TimeSlot[]>(() => {
   if (!selectedDate.value) return []
   if (cloud.value) {
@@ -134,9 +140,47 @@ const availableSlots = computed<TimeSlot[]>(() => {
   return timeSlots.getSlotsForDate(selectedDate.value, booked)
 })
 
+// Применяем диплинк, когда список услуг готов (cloud грузится асинхронно).
+watch(serviceList, () => applyInitial())
+// Если предвыбранное время оказалось занято — сбрасываем его.
+watch(dayTimes, () => {
+  if (
+    selectedTime.value &&
+    !availableSlots.value.some((s) => s.time === selectedTime.value && s.available)
+  ) {
+    selectedTime.value = ''
+  }
+})
+
 function selectService(id: string) {
   selectedServiceId.value = id
   step.value = 'datetime'
+  const ctx = props.context
+  avail.load(
+    cloud.value && ctx ? ctx.businessId : null,
+    cloud.value && ctx ? ctx.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone,
+  )
+}
+
+function applyInitial() {
+  const init = props.initial
+  if (!init) return
+  if (
+    init.serviceId &&
+    serviceList.value.some((s) => s.id === init.serviceId)
+  ) {
+    selectedServiceId.value = init.serviceId
+    if (step.value === 'service') {
+      step.value = 'datetime'
+      const ctx = props.context
+      avail.load(
+        cloud.value && ctx ? ctx.businessId : null,
+        cloud.value && ctx ? ctx.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone,
+      )
+    }
+  }
+  if (init.date && /^\d{4}-\d{2}-\d{2}$/.test(init.date)) selectedDate.value = init.date
+  if (init.time && /^\d{2}:\d{2}$/.test(init.time)) selectedTime.value = init.time
 }
 
 function selectDateTime() {
@@ -276,17 +320,15 @@ const shownCategories = computed(() => (cloud.value ? allCategories.value : loca
           <h2>Выберите дату и время</h2>
           <p>{{ selectedService?.name }}</p>
         </div>
-        <div class="booking-form__dates">
-          <button
-            v-for="day in days"
-            :key="day"
-            :class="['booking-form__date-btn', { 'booking-form__date-btn--active': selectedDate === day }]"
-            @click="selectedDate = day; selectedTime = ''"
-          >
-            <span class="booking-form__date-day">{{ getDayName(day) }}</span>
-            <span class="booking-form__date-num">{{ getMonthDay(day) }}</span>
-          </button>
+        <div v-if="avail.loading.value && avail.days.value.length === 0" class="booking-form__dates">
+          <AppSkeleton v-for="i in 7" :key="i" height="86px" width="68px" radius="8px" />
         </div>
+        <AvailabilityCalendar
+          v-else
+          :days="avail.days.value"
+          :selected-date="selectedDate"
+          @select="selectedDate = $event"
+        />
         <div v-if="selectedDate" class="booking-form__times">
           <p class="booking-form__times-label">Доступное время</p>
           <div class="booking-form__times-grid">

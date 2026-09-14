@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import BookingForm, { type BookingContext } from '@/components/BookingForm.vue'
 import AppLoader from '@/components/ui/AppLoader.vue'
 import { business } from '@/config/business'
 import { isSupabaseEnabled } from '@/services/supabase'
 import type { Business } from '@/types'
+
+const route = useRoute()
 
 const cloud = isSupabaseEnabled()
 const loading = ref(false)
@@ -16,6 +19,21 @@ const context = computed<BookingContext | null>(() => {
     businessId: biz.value.id,
     businessName: biz.value.name,
     timezone: biz.value.timezone || 'Europe/Moscow',
+  }
+})
+
+// Диплинк со страницы расписания: ?service=&date=YYYY-MM-DD&time=HH:MM
+const initial = computed(() => {
+  const q = route.query
+  const pick = (v: unknown) => (typeof v === 'string' ? v : '')
+  const date = pick(q.date)
+  const time = pick(q.time)
+  const serviceId = pick(q.service)
+  if (!date && !time && !serviceId) return null
+  return {
+    serviceId: serviceId || undefined,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+    time: /^\d{2}:\d{2}$/.test(time) ? time : undefined,
   }
 })
 
@@ -52,7 +70,7 @@ onMounted(async () => {
       </div>
       <div v-else class="booking-page__layout">
         <div class="booking-page__form">
-          <BookingForm :context="context" />
+          <BookingForm :context="context" :initial="initial" />
         </div>
         <aside class="booking-page__side">
           <h3>Контакты для записи</h3>
@@ -65,6 +83,7 @@ onMounted(async () => {
             {{ address }}
           </p>
           <p class="booking-page__note">Не дозвонились? Оставьте заявку в форме — перезвоним и подтвердим время.</p>
+          <router-link to="/schedule" class="booking-page__schedule-link">Смотреть всё расписание →</router-link>
         </aside>
       </div>
     </div>
@@ -133,6 +152,14 @@ onMounted(async () => {
 
   &__note {
     font-size: 13px;
+  }
+
+  &__schedule-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: $color-primary;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
   }
 
   &__loading {

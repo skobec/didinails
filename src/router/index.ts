@@ -53,6 +53,12 @@ const router = createRouter({
           component: () => import('@/pages/BookingPage.vue'),
           meta: { title: 'Запись онлайн' },
         },
+        {
+          path: 'schedule',
+          name: 'schedule',
+          component: () => import('@/pages/SchedulePage.vue'),
+          meta: { title: 'Расписание' },
+        },
         // Вход только для владельца. Публичной регистрации и ссылок на неё
         // в меню нет; /register — скрытая одноразовая настройка владельца.
         {
@@ -133,6 +139,12 @@ const router = createRouter({
           name: 'admin-calendar',
           component: () => import('@/pages/admin/AdminCalendar.vue'),
           meta: { title: 'Календарь' },
+        },
+        {
+          path: 'schedule',
+          name: 'admin-schedule',
+          component: () => import('@/pages/admin/AdminSchedule.vue'),
+          meta: { title: 'График работы' },
         },
         {
           path: 'notifications',

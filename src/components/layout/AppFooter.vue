@@ -22,6 +22,7 @@ const year = new Date().getFullYear()
           <router-link to="/gallery" class="footer__link">Работы</router-link>
           <router-link to="/prices" class="footer__link">Цены</router-link>
           <router-link to="/reviews" class="footer__link">Отзывы</router-link>
+          <router-link to="/schedule" class="footer__link">Расписание</router-link>
           <router-link to="/contacts" class="footer__link">Контакты</router-link>
         </div>
         <div class="footer__col">
