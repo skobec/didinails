@@ -13,6 +13,11 @@ export function ruError(message: string): string {
   if (m.includes('duplicate key') || m.includes('already exists') || m.includes('23505'))
     return 'Такой адрес страницы уже занят. Придумайте другой slug.'
   if (m.includes('slot_taken')) return 'Это время уже заняли. Пожалуйста, выберите другое.'
+  if (m.includes('no_captcha') || m.includes('bad_captcha'))
+    return 'Не пройдена проверка «я не робот». Поставьте галочку и попробуйте снова.'
+  if (m.includes('no_service')) return 'Эта услуга сейчас недоступна. Обновите страницу.'
+  if (m.includes('bad_time') || m.includes('bad_duration') || m.includes('no_client_data'))
+    return 'Проверьте заполнение формы и попробуйте снова.'
   return message || 'Что-то пошло не так. Попробуйте ещё раз.'
 }
 

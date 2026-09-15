@@ -5,6 +5,7 @@ import AppInput from '@/components/ui/AppInput.vue'
 import AppPhoneInput from '@/components/ui/AppPhoneInput.vue'
 import AppSkeleton from '@/components/ui/AppSkeleton.vue'
 import AvailabilityCalendar from '@/components/AvailabilityCalendar.vue'
+import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { isValidRuPhone, checkBookingRateLimit, recordBookingAttempt } from '@/utils/phone'
 import ServiceCard from '@/components/ServiceCard.vue'
 import { useServices } from '@/composables/useServices'
@@ -32,6 +33,15 @@ const props = defineProps<{
 }>()
 
 const cloud = computed(() => !!props.context && isSupabaseEnabled())
+
+// Капча нужна только в cloud (там её проверяет сервер). Без ключа виджет
+// не показываем — форма работает как раньше (dev-режим).
+const turnstileKey = computed(
+  () => (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined) || '',
+)
+const showCaptcha = computed(() => cloud.value && turnstileKey.value !== '')
+const captchaToken = ref('')
+const captchaKey = ref(0)
 
 const { activeServices, categories } = useServices()
 const { create, getByDate } = useBookings()
@@ -206,6 +216,11 @@ async function submit() {
     return
   }
   const svc = selectedService.value
+  if (showCaptcha.value && !captchaToken.value) {
+    submitError.value = 'Подтвердите, что вы не робот (галочка ниже).'
+    show(submitError.value, 'error')
+    return
+  }
   if (cloud.value && props.context) {
     try {
       await createBookingGuest(props.context.businessId, {
@@ -217,7 +232,10 @@ async function submit() {
         name: name.value,
         phone: phone.value,
         comment: comment.value,
+        captchaToken: captchaToken.value,
       })
+      // Токен одноразовый — обновляем виджет для следующей заявки.
+      captchaKey.value++
       // Мгновенно гасим слот в UI, не дожидаясь перезапроса.
       if (dayTimes.value) {
         dayTimes.value = {
@@ -228,6 +246,7 @@ async function submit() {
     } catch (e) {
       submitError.value = ruError(e instanceof Error ? e.message : '')
       show(submitError.value, 'error')
+      captchaKey.value++
       return
     }
   } else {
@@ -374,6 +393,12 @@ const shownCategories = computed(() => (cloud.value ? allCategories.value : loca
             class="booking-form__honeypot"
           />
         </div>
+        <TurnstileWidget
+          v-if="showCaptcha"
+          :key="captchaKey"
+          :sitekey="turnstileKey"
+          @verified="captchaToken = $event"
+        />
         <p v-if="submitError" class="booking-form__submit-error">{{ submitError }}</p>
         <div class="booking-form__nav">
           <AppButton variant="ghost" @click="step = 'datetime'">Назад</AppButton>

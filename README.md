@@ -170,6 +170,7 @@ src/
 | `VITE_USE_SUPABASE` | — (выкл.) | `'true'` — использовать Supabase, иначе localStorage |
 | `VITE_SUPABASE_URL` | — | URL бесплатного проекта Supabase |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | — | Публичный ключ `sb_publishable_*` (secret — никогда) |
+| `VITE_TURNSTILE_SITE_KEY` | — | Капча Cloudflare Turnstile (без него виджет скрыт, см. `docs/captcha.md`) |
 
 Файл `.env.local` игнорируется гитом (см. `.gitignore`: `*.local`).
 Секреты никогда не коммитятся — образец без значений лежит в `.env.example`.

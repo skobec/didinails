@@ -213,6 +213,7 @@ export interface GuestBookingInput {
   name: string
   phone: string
   comment: string
+  captchaToken?: string
 }
 
 // Гостевая запись с сайта (anon): find-or-create клиента, вставка записи,
@@ -232,6 +233,7 @@ export async function createBookingGuest(
     p_name: input.name.trim(),
     p_phone: input.phone,
     p_comment: input.comment.trim(),
+    p_captcha_token: input.captchaToken ?? '',
   })
   if (error) throw new Error(error.message)
   const r = data as {
