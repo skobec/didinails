@@ -98,6 +98,20 @@ begin
     returning id into cid;
   end if;
 
+  -- Антиспам без внешних интеграций: не больше 3 активных будущих записей
+  -- на один номер. Легитимный предел с запасом (семья с одного телефона
+  -- проходит), спам-ферме нужен новый номер на каждые 3 заявки.
+  -- Ручное создание из админки идёт мимо функции и не ограничено.
+  if (
+    select count(*) from appointments a
+    where a.business_id = p_business_id
+      and a.client_id = cid
+      and a.status in ('pending', 'confirmed')
+      and a.start_at > now()
+  ) >= 3 then
+    raise exception 'TOO_MANY_BOOKINGS';
+  end if;
+
   start_at := ((p_date::text || ' ' || p_time)::timestamp AT TIME ZONE p_timezone);
   end_at := start_at + (p_duration_minutes || ' minutes')::interval;
 

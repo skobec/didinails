@@ -16,6 +16,8 @@ export function ruError(message: string): string {
   if (m.includes('no_captcha') || m.includes('bad_captcha'))
     return 'Не пройдена проверка «я не робот». Поставьте галочку и попробуйте снова.'
   if (m.includes('no_service')) return 'Эта услуга сейчас недоступна. Обновите страницу.'
+  if (m.includes('too_many_bookings'))
+    return 'С этого номера уже есть 3 активные записи. Позвоните нам — добавим вручную.'
   if (m.includes('bad_time') || m.includes('bad_duration') || m.includes('no_client_data'))
     return 'Проверьте заполнение формы и попробуйте снова.'
   return message || 'Что-то пошло не так. Попробуйте ещё раз.'
